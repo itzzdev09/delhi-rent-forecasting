@@ -1,33 +1,21 @@
 import logging
 import os
+from utils.config import LOG_DIR
 
-# Create logs directory if it doesn’t exist
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Log file path
-LOG_FILE = os.path.join(LOG_DIR, "pipeline.log")
+def get_logger(name="delhi_rent_forecasting"):
+    logger = logging.getLogger(name)
+    if not logger.hasHandlers():
+        logger.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler = logging.FileHandler(os.path.join(LOG_DIR, "pipeline.log"))
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
-# Configure logger
-logger = logging.getLogger("delhi_rent_forecasting")
-logger.setLevel(logging.INFO)
-
-# File handler
-file_handler = logging.FileHandler(LOG_FILE)
-file_handler.setLevel(logging.INFO)
-
-# Console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-
-# Formatter
-formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
-
-# Avoid duplicate handlers if script is re-run
-if not logger.hasHandlers():
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+    return logger
