@@ -1,20 +1,25 @@
 import os
 
-class Config:
-    TARGET = "rent"  
-    
-    ALT_TARGETS = ["price"] 
-    # -------------------------------
-    # Project Paths
-    # -------------------------------
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import os
 
+class Config:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR = os.path.join(BASE_DIR, "data")
+
     RAW_DATA_PATH = os.path.join(DATA_DIR, "raw", "delhi_rentals.csv")
     PROCESSED_DATA_PATH = os.path.join(DATA_DIR, "processed", "processed_rentals.csv")
 
-    MODEL_DIR = os.path.join(BASE_DIR, "models", "saved_models")
-    LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+    MODELS_DIR = os.path.join(BASE_DIR, "models")
+    os.makedirs(MODELS_DIR, exist_ok=True)
+
+    LOGS_DIR = os.path.join(BASE_DIR, "logs")
+    os.makedirs(LOGS_DIR, exist_ok=True)
+
+    # Target variable(s)
+    TARGET_RENT = "rent"
+    TARGET_PRICE = "price"
+
 
     # -------------------------------
     # Training Parameters

@@ -1,34 +1,33 @@
 import logging
 import os
 
-def setup_logger(name: str, log_file: str = None, level=logging.INFO):
-    """
-    Setup a logger with console + optional file handler.
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+# Create logs directory if it doesn’t exist
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
 
-    if not logger.handlers:
-        # Console handler
-        ch = logging.StreamHandler()
-        ch.setLevel(level)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
+# Log file path
+LOG_FILE = os.path.join(LOG_DIR, "pipeline.log")
 
-        # File handler (optional)
-        if log_file:
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
-            fh = logging.FileHandler(log_file)
-            fh.setLevel(level)
-            fh.setFormatter(formatter)
-            logger.addHandler(fh)
+# Configure logger
+logger = logging.getLogger("delhi_rent_forecasting")
+logger.setLevel(logging.INFO)
 
-    return logger
+# File handler
+file_handler = logging.FileHandler(LOG_FILE)
+file_handler.setLevel(logging.INFO)
 
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
 
-def get_logger(name: str):
-    """
-    Shorthand wrapper for setup_logger (console only).
-    """
-    return setup_logger(name)
+# Formatter
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# Avoid duplicate handlers if script is re-run
+if not logger.hasHandlers():
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)

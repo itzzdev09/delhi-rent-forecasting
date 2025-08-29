@@ -17,38 +17,19 @@ from sklearn.linear_model import LinearRegression
 import joblib
 import os
 
-from utils import config, logger
+from utils.config import Config
+logger.info(f"Loading processed data from {Config.PROCESSED_DATA_PATH}...")
+
 
 
 def load_data():
-    """
-    Loads processed data, cleans it, and splits into X and y.
-    Ensures Rent column is present and valid.
-    """
-    logger.info(f"Loading processed data from {config.PROCESSED_DATA_PATH}...")
+    logger.info(f"Loading processed data from {Config.PROCESSED_DATA_PATH}...")
+    df = pd.read_csv(Config.PROCESSED_DATA_PATH)
 
-    df = pd.read_csv(config.PROCESSED_DATA_PATH)
+    X = df.drop(Config.TARGET_COLUMN, axis=1)
+    y = df[Config.TARGET_COLUMN]
 
-    # Ensure target exists
-    if "Rent" not in df.columns:
-        raise ValueError("Target column 'Rent' not found in processed data.")
-
-    # Drop rows where Rent is missing
-    df = df.dropna(subset=["Rent"])
-
-    # Remove duplicates
-    df = df.drop_duplicates()
-
-    # Reset index
-    df = df.reset_index(drop=True)
-
-    # Features and target
-    X = df.drop(columns=["Rent"])
-    y = df["Rent"]
-
-    logger.info(f"Final dataset shape: X={X.shape}, y={y.shape}")
-
-    return train_test_split(X, y, test_size=0.2, random_state=42)
+    return train_test_split(X, y, test_size=Config.TEST_SIZE, random_state=Config.RANDOM_STATE)
 
 
 def train_model(X_train, y_train):
