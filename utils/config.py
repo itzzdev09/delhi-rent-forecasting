@@ -21,8 +21,17 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 EPOCHS = 50
 
-# Target column for regression
-TARGET_COLUMN = "rent"
-
-# Synthetic data augmentation
+# -------------------------------
+# Synthetic Data Parameters
+# -------------------------------
 SYNTHETIC_DATA_ROWS = 1000
+
+# -------------------------------
+# Columns
+# -------------------------------
+TARGET_COLUMN = "price"
+FEATURE_COLUMNS = [
+    'house_type', 'house_size', 'location', 'city', 'latitude', 'longitude',
+    'numBathrooms', 'numBalconies', 'isNegotiable', 'priceSqFt', 'verificationDate',
+    'description', 'SecurityDeposit', 'Status'
+]

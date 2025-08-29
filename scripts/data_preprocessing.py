@@ -1,12 +1,4 @@
 # scripts/data_preprocessing.py
-"""
-Data preprocessing pipeline for Delhi House Rent Prediction.
-- Cleans missing/duplicate values
-- Encodes categorical features
-- Scales numerical features
-- Generates synthetic data using Faker
-- Saves final processed dataset and preprocessing pipeline
-"""
 
 import pandas as pd
 import numpy as np
@@ -18,14 +10,13 @@ from faker import Faker
 import random
 import os
 import sys
-import joblib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from utils.logger import get_logger
 from utils.config import *
 
 log = get_logger(__name__)
-
 
 def preprocess_data():
     # Load raw dataset
@@ -54,13 +45,13 @@ def preprocess_data():
     df = pd.concat([df, pd.DataFrame(synthetic_data)], ignore_index=True)
     log.info(f"New dataset size after augmentation: {df.shape}")
 
-    # Fill any remaining NaNs
+    # Fill remaining NaNs
     nan_cols = df.columns[df.isna().any()].tolist()
     if nan_cols:
         log.warning(f"NaN values detected in columns: {nan_cols}. Filling with forward fill...")
         df = df.ffill()
 
-    # Drop constant columns (no variance)
+    # Drop constant columns
     constant_cols = [col for col in df.columns if df[col].nunique() <= 1]
     if constant_cols:
         log.warning(f"Dropping constant columns (no variance): {constant_cols}")
@@ -74,15 +65,20 @@ def preprocess_data():
     categorical_features = X.select_dtypes(include=["object"]).columns.tolist()
     numerical_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
 
+    # --- FIX: enforce correct types ---
+    for col in categorical_features:
+        X[col] = X[col].astype(str)
+    for col in numerical_features:
+        X[col] = pd.to_numeric(X[col], errors="coerce")
+
     log.info(f"Encoding categorical features: {categorical_features}")
     log.info(f"Scaling numerical features: {numerical_features}")
 
-    # Preprocessing pipeline
+    # Preprocessing pipelines
     categorical_transformer = Pipeline([
         ("imputer", SimpleImputer(strategy="most_frequent")),
         ("onehot", OneHotEncoder(handle_unknown="ignore"))
     ])
-
     numerical_transformer = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler())
@@ -96,7 +92,7 @@ def preprocess_data():
     # Fit and transform
     X_processed = preprocessor.fit_transform(X)
 
-    # Feature names
+    # Convert back to DataFrame with feature names
     cat_features = preprocessor.named_transformers_["categorical"]["onehot"].get_feature_names_out(categorical_features)
     feature_names = list(cat_features) + numerical_features
     X_processed = pd.DataFrame(X_processed.toarray(), columns=feature_names)
@@ -108,12 +104,6 @@ def preprocess_data():
     os.makedirs(os.path.dirname(PROCESSED_DATA_PATH), exist_ok=True)
     processed_df.to_csv(PROCESSED_DATA_PATH, index=False)
     log.info(f"Processed dataset saved at {PROCESSED_DATA_PATH}")
-
-    # Save preprocessor for future predictions
-    preprocessor_path = os.path.join(MODEL_DIR, "preprocessor.pkl")
-    os.makedirs(os.path.dirname(preprocessor_path), exist_ok=True)
-    joblib.dump(preprocessor, preprocessor_path)
-    log.info(f"Preprocessor pipeline saved at {preprocessor_path}")
 
 
 if __name__ == "__main__":
