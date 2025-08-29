@@ -1,101 +1,111 @@
-# scripts/data_preprocessing.py
-"""
-Data preprocessing pipeline for Delhi House Rent Prediction.
-- Cleans missing/duplicate values
-- Encodes categorical features
-- Scales numerical features
-- Generates synthetic data using Faker
-- Saves final processed dataset
-"""
-
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
 from faker import Faker
+import random
 import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from utils.logger import setup_logger
+from utils.config import Config
+
+log = setup_logger(__name__)
 
 
-from utils import config, logger
 
-log = logger.get_logger(__name__)
+def preprocess_data():
+    # Load raw dataset
+    log.info(f"Loading raw dataset from {Config.RAW_DATA_PATH}...")
+    df = pd.read_csv(Config.RAW_DATA_PATH)
 
-
-def load_raw_data(file_path=config.RAW_DATA_PATH):
-    """Load raw dataset from CSV."""
-    log.info(f"Loading raw dataset from {file_path}...")
-    return pd.read_csv(file_path)
-
-
-def clean_data(df):
-    """Handle missing values and remove duplicates."""
+    # Cleaning step
     log.info("Cleaning data...")
-    df = df.drop_duplicates()
-    df = df.fillna(method="ffill")  # forward fill for simplicity
-    return df
+    df = df.ffill()  # forward fill (future-proofed)
 
-
-def encode_features(df):
-    """Encode categorical columns (basic version)."""
-    log.info("Encoding categorical features...")
-
-    categorical_cols = df.select_dtypes(include=["object"]).columns
-    for col in categorical_cols:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col].astype(str))
-
-    return df
-
-
-def scale_features(df):
-    log.info("Scaling numerical features...")
-
-    num_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
-    if "Rent" in num_cols:
-        num_cols.remove("Rent")  # don’t scale target
-
-    scaler = StandardScaler()
-    df[num_cols] = scaler.fit_transform(df[num_cols])
-    return df
-
-
-
-def augment_data(df, n_samples=500):
-    """Use Faker to generate synthetic rental data for Delhi."""
-    log.info(f"Generating {n_samples} synthetic rows with Faker...")
-    fake = Faker()
-
+    # Synthetic data augmentation
+    log.info(f"Generating {Config.SYNTHETIC_DATA_ROWS} synthetic rows with Faker...")
+    faker = Faker()
     synthetic_data = []
-    for _ in range(n_samples):
-        row = {
-            "Location": fake.random_element(
-                elements=["Dwarka", "Saket", "Rohini", "Karol Bagh", "Hauz Khas"]
-            ),
-            "BHK": fake.random_int(min=1, max=5),
-            "Size": fake.random_int(min=500, max=3000),
-            "Rent": fake.random_int(min=5000, max=100000),
-        }
-        synthetic_data.append(row)
-
-    df_synthetic = pd.DataFrame(synthetic_data)
-    df = pd.concat([df, df_synthetic], ignore_index=True)
+    for _ in range(Config.SYNTHETIC_DATA_ROWS):
+        synthetic_data.append({
+            "location": faker.city(),
+            "bhk": random.randint(1, 5),
+            "bathroom": random.randint(1, 4),
+            "size": random.randint(500, 2500),
+            "rent": random.randint(5000, 50000),
+            "furnishing": random.choice(["Furnished", "Semi-Furnished", "Unfurnished"]),
+            "tenant_preferred": random.choice(["Family", "Bachelor", "Company"]),
+            "point_of_contact": faker.name()
+        })
+    df = pd.concat([df, pd.DataFrame(synthetic_data)], ignore_index=True)
 
     log.info(f"New dataset size after augmentation: {df.shape}")
-    return df
 
+    # Check and log NaNs
+    nan_cols = df.columns[df.isna().any()].tolist()
+    if nan_cols:
+        log.warning(f"NaN values detected in columns: {nan_cols}. Filling with forward fill...")
+        df = df.ffill()
 
-def preprocess_pipeline():
-    """Run full preprocessing pipeline."""
-    df = load_raw_data()
-    df = clean_data(df)
-    df = augment_data(df, n_samples=1000)
-    df = encode_features(df)
-    df = scale_features(df)
+    # Drop constant columns
+    constant_cols = [col for col in df.columns if df[col].nunique() <= 1]
+    if constant_cols:
+        log.warning(f"Dropping constant columns (no variance): {constant_cols}")
+        df = df.drop(columns=constant_cols)
 
-    os.makedirs(os.path.dirname(config.PROCESSED_DATA_PATH), exist_ok=True)
-    df.to_csv(config.PROCESSED_DATA_PATH, index=False)
-    log.info(f"Processed dataset saved at {config.PROCESSED_DATA_PATH}")
+    # Separate features and target
+    X = df.drop(columns=[Config.TARGET])  
+    y = df[Config.TARGET]
+
+    # Identify categorical and numerical features
+    categorical_features = X.select_dtypes(include=["object"]).columns.tolist()
+    numerical_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
+
+    log.info(f"Encoding categorical features: {categorical_features}")
+    log.info(f"Scaling numerical features: {numerical_features}")
+
+    # Preprocessing pipeline
+    categorical_transformer = Pipeline(steps=[
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore"))
+    ])
+
+    numerical_transformer = Pipeline(steps=[
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler())
+    ])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("categorical", categorical_transformer, categorical_features),
+            ("numerical", numerical_transformer, numerical_features)
+        ]
+    )
+
+    # Fit and transform
+    X_processed = preprocessor.fit_transform(X)
+
+    # Convert back to DataFrame with feature names
+    feature_names = (
+        preprocessor.named_transformers_["categorical"]["onehot"]
+        .get_feature_names_out(categorical_features).tolist()
+        + numerical_features
+    )
+    X_processed = pd.DataFrame(X_processed.toarray(), columns=feature_names)
+
+    # Merge target back
+    processed_df = pd.concat([X_processed, y.reset_index(drop=True)], axis=1)
+
+    # Save processed dataset
+    os.makedirs(os.path.dirname(Config.PROCESSED_DATA_PATH), exist_ok=True)
+    processed_df.to_csv(Config.PROCESSED_DATA_PATH, index=False)
+
+    log.info(f"Processed dataset saved at {Config.PROCESSED_DATA_PATH}")
 
 
 if __name__ == "__main__":
-    preprocess_pipeline()
+    preprocess_data()

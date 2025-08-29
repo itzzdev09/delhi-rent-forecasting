@@ -1,31 +1,34 @@
 import logging
 import os
 
-def get_logger(name: str, log_file: str = "logs/project.log"):
-    """Configure and return a logger."""
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-
+def setup_logger(name: str, log_file: str = None, level=logging.INFO):
+    """
+    Setup a logger with console + optional file handler.
+    """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
 
-    # Prevent duplicate handlers in interactive/debug runs
     if not logger.handlers:
-        # File handler
-        fh = logging.FileHandler(log_file)
-        fh.setLevel(logging.DEBUG)
-
         # Console handler
         ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-
-        # Formatter
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        fh.setFormatter(formatter)
+        ch.setLevel(level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         ch.setFormatter(formatter)
-
-        logger.addHandler(fh)
         logger.addHandler(ch)
 
+        # File handler (optional)
+        if log_file:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            fh = logging.FileHandler(log_file)
+            fh.setLevel(level)
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+
     return logger
+
+
+def get_logger(name: str):
+    """
+    Shorthand wrapper for setup_logger (console only).
+    """
+    return setup_logger(name)
