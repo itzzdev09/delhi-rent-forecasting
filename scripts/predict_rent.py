@@ -1,73 +1,88 @@
 # scripts/predict_rent.py
+"""
+Predict rent for new house listings.
+- Loads trained model and preprocessor
+- Accepts input CSV or DataFrame
+- Handles missing columns gracefully
+- Outputs predictions
+"""
+
 import os
 import sys
 import pandas as pd
+import numpy as np
 import joblib
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from utils.config import MODEL_DIR
+# Add project root to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from utils.logger import get_logger
+from utils.config import *
 
-log = get_logger(__name__)
+logger = get_logger(__name__)
 
-MODEL_PATH = os.path.join(MODEL_DIR, "rent_model.pkl")
-PREPROCESSOR_PATH = os.path.join(MODEL_DIR, "preprocessor.pkl")
 
-def load_model_and_preprocessor():
-    """Load trained model and preprocessor pipeline."""
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
-    if not os.path.exists(PREPROCESSOR_PATH):
-        raise FileNotFoundError(f"Preprocessor file not found at {PREPROCESSOR_PATH}")
+def load_artifacts():
+    model_path = os.path.join(MODELS_DIR, "rent_model.pkl")
+    preprocessor_path = os.path.join(MODELS_DIR, "preprocessor.pkl")
 
-    log.info(f"Loading model from {MODEL_PATH} and preprocessor from {PREPROCESSOR_PATH}...")
-    model = joblib.load(MODEL_PATH)
-    preprocessor = joblib.load(PREPROCESSOR_PATH)
+    logger.info(f"Loading model from {model_path} and preprocessor from {preprocessor_path}...")
+    model = joblib.load(model_path)
+    preprocessor = joblib.load(preprocessor_path)
     return model, preprocessor
 
-def preprocess_input(preprocessor, input_df):
-    """Apply the saved preprocessor pipeline to new input data."""
-    log.info("Preprocessing new input data...")
-    X_processed = preprocessor.transform(input_df)
+
+def preprocess_input(preprocessor, df):
+    """
+    Ensure all columns required by the preprocessor exist.
+    Missing numeric columns -> fill 0
+    Missing categorical columns -> fill 'Unknown'
+    """
+    # Expected columns
+    all_columns = []
+    for name, transformer, cols in preprocessor.transformers_:
+        all_columns.extend(cols)
     
-    # Feature names from one-hot encoder + numerical features
-    cat_features = preprocessor.named_transformers_["categorical"]["onehot"].get_feature_names_out(
-        preprocessor.transformers_[0][2]
-    )
-    numerical_features = preprocessor.transformers_[1][2]
-    feature_names = list(cat_features) + list(numerical_features)
+    missing_cols = set(all_columns) - set(df.columns)
+    for col in missing_cols:
+        if col in df.select_dtypes(include=["object"]).columns:
+            df[col] = "Unknown"
+        else:
+            df[col] = 0
 
-    return pd.DataFrame(X_processed.toarray(), columns=feature_names)
+    df = df[all_columns]  # reorder columns
+    X_processed = preprocessor.transform(df)
+    return X_processed
 
-def predict_rent(model, X_processed):
-    log.info(f"Predicting rent for {len(X_processed)} rows...")
+
+def predict(df):
+    model, preprocessor = load_artifacts()
+    X_processed = preprocess_input(preprocessor, df)
     predictions = model.predict(X_processed)
-    return pd.Series(predictions, name="predicted_rent")
+    df["predicted_rent"] = predictions
+    return df
+
 
 def main():
-    # Example new input CSV
-    sample_input_csv = os.path.join(os.path.dirname(__file__), "sample_input.csv")
-    if not os.path.exists(sample_input_csv):
-        log.warning(f"{sample_input_csv} not found. Creating a dummy input CSV.")
-        dummy_data = pd.DataFrame({
-            "location": ["Dwarka", "Saket"],
-            "bhk": [2, 3],
-            "bathroom": [2, 3],
-            "size": [1000, 1500],
-            "furnishing": ["Furnished", "Semi-Furnished"],
-            "tenant_preferred": ["Family", "Bachelor"],
-            "point_of_contact": ["Alice", "Bob"]
-        })
-        dummy_data.to_csv(sample_input_csv, index=False)
-
-    input_df = pd.read_csv(sample_input_csv)
-
-    model, preprocessor = load_model_and_preprocessor()
-    X_processed = preprocess_input(preprocessor, input_df)
-    predictions = predict_rent(model, X_processed)
+    # Example: load input CSV
+    input_path = os.path.join(os.path.dirname(__file__), "sample_input.csv")
     
-    input_df["predicted_rent"] = predictions
-    print(input_df)
+    if not os.path.exists(input_path):
+        logger.warning(f"{input_path} not found. Creating a dummy input CSV.")
+        dummy = pd.DataFrame({
+            "location": ["Delhi"], "bhk": [2], "bathroom": [2], "size": [1200],
+            "furnishing": ["Semi-Furnished"], "tenant_preferred": ["Family"],
+            "point_of_contact": ["John Doe"]
+        })
+        dummy.to_csv(input_path, index=False)
+    
+    input_df = pd.read_csv(input_path)
+    logger.info("Preprocessing new input data...")
+    output_df = predict(input_df)
+    
+    logger.info("Predictions:")
+    print(output_df)
+
 
 if __name__ == "__main__":
     main()
