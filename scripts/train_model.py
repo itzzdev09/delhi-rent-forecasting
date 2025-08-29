@@ -8,74 +8,57 @@ Train ML models for Delhi House Rent Prediction.
 - Saves trained model
 """
 
-import os
-import joblib
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.impute import SimpleImputer   # 👈 added
+import joblib
 
 from utils import config, logger
 
-log = logger.get_logger(__name__)
 
+def load_data():
+    logger.info(f"Loading processed data from {config.PROCESSED_DATA_PATH}...")
+    df = pd.read_csv(config.PROCESSED_DATA_PATH)
 
-def load_data(file_path=config.PROCESSED_DATA_PATH):
-    """Load processed dataset."""
-    log.info(f"Loading processed data from {file_path}...")
-    return pd.read_csv(file_path)
+    X = df.drop(columns=["rent"])
+    y = df["rent"]
+    return train_test_split(X, y, test_size=0.2, random_state=42)
 
 
 def train_and_evaluate(X_train, X_test, y_train, y_test):
-    """Train models and evaluate performance."""
-    results = {}
-    models = {
-        "LinearRegression": LinearRegression(),
-        "RandomForest": RandomForestRegressor(n_estimators=200, random_state=42),
-    }
+    # ✅ Step 1: Handle missing values with imputation
+    imputer = SimpleImputer(strategy="median")
+    X_train = imputer.fit_transform(X_train)
+    X_test = imputer.transform(X_test)
 
-    for name, model in models.items():
-        log.info(f"Training {name}...")
-        model.fit(X_train, y_train)
-        preds = model.predict(X_test)
+    # ✅ Step 2: Train model
+    logger.info("Training LinearRegression...")
+    model = LinearRegression()
+    model.fit(X_train, y_train)
 
-        r2 = r2_score(y_test, preds)
-        rmse = np.sqrt(mean_squared_error(y_test, preds))
-        mae = mean_absolute_error(y_test, preds)
+    # ✅ Step 3: Evaluate
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-        results[name] = {"model": model, "r2": r2, "rmse": rmse, "mae": mae}
-        log.info(f"{name} - R2: {r2:.3f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}")
-
-    return results
-
-
-def save_best_model(results):
-    """Save the best model based on R² score."""
-    best_model_name = max(results, key=lambda k: results[k]["r2"])
-    best_model = results[best_model_name]["model"]
-
-    os.makedirs(os.path.dirname(config.MODEL_PATH), exist_ok=True)
-    joblib.dump(best_model, config.MODEL_PATH)
-
-    log.info(f"Best model '{best_model_name}' saved to {config.MODEL_PATH}")
+    logger.info(f"Evaluation Results - MSE: {mse:.2f}, R2: {r2:.2f}")
+    return model, mse, r2, imputer
 
 
 def main():
-    df = load_data()
+    X_train, X_test, y_train, y_test = load_data()
+    model, mse, r2, imputer = train_and_evaluate(X_train, X_test, y_train, y_test)
 
-    # Features & Target
-    X = df.drop("Rent", axis=1)
-    y = df["Rent"]
-
-    # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-
-    results = train_and_evaluate(X_train, X_test, y_train, y_test)
-    save_best_model(results)
+    # ✅ Save both model and imputer (so we can preprocess future inputs consistently)
+    joblib.dump(model, config.MODEL_PATH)
+    joblib.dump(imputer, config.IMPUTER_PATH)  # 👈 save imputer separately
+    logger.info(f"Model saved to {config.MODEL_PATH}")
+    logger.info(f"Imputer saved to {config.IMPUTER_PATH}")
 
 
 if __name__ == "__main__":
