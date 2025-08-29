@@ -26,16 +26,3 @@ TARGET_COLUMN = "rent"
 
 # Synthetic data augmentation
 SYNTHETIC_DATA_ROWS = 1000
-
-# LSTM & Regression placeholders
-LSTM_PARAMS = {
-    "input_size": 10,      
-    "num_layers": 2,
-    "dropout": 0.3,
-    "bidirectional": False,
-}
-
-REGRESSION_PARAMS = {
-    "fit_intercept": True,
-    "normalize": False
-}
