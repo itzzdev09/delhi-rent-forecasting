@@ -48,14 +48,16 @@ def encode_features(df):
 
 
 def scale_features(df):
-    """Scale numerical columns for ML models."""
     log.info("Scaling numerical features...")
 
-    num_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    num_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+    if "Rent" in num_cols:
+        num_cols.remove("Rent")  # don’t scale target
+
     scaler = StandardScaler()
     df[num_cols] = scaler.fit_transform(df[num_cols])
-
     return df
+
 
 
 def augment_data(df, n_samples=500):
