@@ -8,11 +8,13 @@ Data preprocessing pipeline for Delhi House Rent Prediction.
 - Saves final processed dataset
 """
 
-import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from faker import Faker
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 from utils import config, logger
 
