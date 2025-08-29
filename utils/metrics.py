@@ -1,7 +1,4 @@
 # utils/metrics.py
-"""
-Evaluation metrics for Delhi House Rent Prediction Project.
-"""
 
 import torch
 import numpy as np

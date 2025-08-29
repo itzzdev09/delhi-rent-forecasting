@@ -84,7 +84,7 @@ def preprocess_pipeline():
     """Run full preprocessing pipeline."""
     df = load_raw_data()
     df = clean_data(df)
-    df = augment_data(df, n_samples=1000)  # add synthetic data
+    df = augment_data(df, n_samples=1000)
     df = encode_features(df)
     df = scale_features(df)
 
