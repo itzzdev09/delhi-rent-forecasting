@@ -1,16 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from app.utils import predict_rent, get_dropdown_options
 
 app = FastAPI(title="Delhi Rent Prediction API")
 
-# Root endpoint
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Delhi Rent Prediction API"}
-
-# Predict endpoint
 class RentInput(BaseModel):
     house_type: str
     house_size: str
@@ -22,17 +16,16 @@ class RentInput(BaseModel):
     furnishing: Optional[str] = None
     tenant_preferred: Optional[str] = None
 
-@app.post("/predict")
-def predict_rent_endpoint(data: RentInput):
-    input_data = data.dict()
-    try:
-        rent = predict_rent(input_data)
-        return {"predicted_rent": rent}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to Delhi Rent Prediction API"}
 
-# Dropdown options endpoint
+@app.post("/predict")
+def predict(input_data: RentInput):
+    input_dict = input_data.dict()
+    rent = predict_rent(input_dict)
+    return {"predicted_rent": rent, "input": input_dict}
+
 @app.get("/dropdowns")
-def get_dropdowns():
-    options = get_dropdown_options()
-    return options
+def dropdowns():
+    return get_dropdown_options()
