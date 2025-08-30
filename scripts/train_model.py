@@ -3,6 +3,7 @@
 Train ML model for Delhi Rent Prediction:
 - Loads processed dataset
 - Splits into train/test
+- Builds preprocessing pipeline
 - Trains Linear Regression
 - Saves trained model and preprocessor
 """
@@ -84,11 +85,12 @@ def main():
     model = train_model(X_train_processed, y_train)
 
     # Save model and preprocessor
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, "saved_models", "rent_model.pkl")
-    preprocessor_path = os.path.join(MODELS_DIR, "saved_models", "preprocessor.pkl")
+    saved_dir = os.path.join(MODELS_DIR, "saved_models")
+    os.makedirs(saved_dir, exist_ok=True)
 
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    model_path = os.path.join(saved_dir, "rent_model.pkl")
+    preprocessor_path = os.path.join(saved_dir, "preprocessor.pkl")
+
     joblib.dump(model, model_path)
     joblib.dump(preprocessor, preprocessor_path)
 

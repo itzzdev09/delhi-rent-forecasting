@@ -12,6 +12,10 @@ PROCESSED_DATA_PATH = os.path.join(DATA_DIR, "processed", "processed_rentals.csv
 MODEL_DIR = os.path.join(BASE_DIR, "models", "saved_models")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 
+# Ensure directories exist
+os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+
 # -------------------------------
 # Training Parameters
 # -------------------------------
