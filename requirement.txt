@@ -7,3 +7,5 @@ streamlit
 tqdm
 joblib
 faker
+fastapi
+uvicorn
