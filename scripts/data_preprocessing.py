@@ -8,7 +8,9 @@ from faker import Faker
 import random
 import os
 import sys
+import joblib
 
+# Allow importing from utils
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.logger import get_logger
 from utils.config import *
@@ -23,7 +25,7 @@ def preprocess_data():
     logger.info("Cleaning data...")
     df = df.ffill()
 
-    # Synthetic data
+    # === Synthetic data generation ===
     logger.info(f"Generating {SYNTHETIC_DATA_ROWS} synthetic rows with Faker...")
     faker = Faker()
     synthetic_data = []
@@ -57,7 +59,7 @@ def preprocess_data():
     # Fill NaNs
     nan_cols = df.columns[df.isna().any()].tolist()
     if nan_cols:
-        logger.warning(f"NaN values detected in columns: {nan_cols}. Filling with forward fill...")
+        logger.warning(f"NaN values detected in columns: {nan_cols}. Forward-filling...")
         df = df.ffill()
 
     # Drop constant columns
@@ -66,7 +68,7 @@ def preprocess_data():
         logger.warning(f"Dropping constant columns (no variance): {constant_cols}")
         df = df.drop(columns=constant_cols)
 
-    # Separate features and target
+    # === Separate features and target ===
     X = df.drop(columns=[TARGET_COLUMN])
     y = df[TARGET_COLUMN]
 
@@ -77,10 +79,10 @@ def preprocess_data():
     logger.info(f"Encoding categorical features: {categorical_features}")
     logger.info(f"Scaling numerical features: {numerical_features}")
 
-    # Pipeline
+    # === Pipelines ===
     categorical_transformer = Pipeline([
         ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore"))
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
     ])
     numerical_transformer = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -91,24 +93,26 @@ def preprocess_data():
         ("numerical", numerical_transformer, numerical_features)
     ])
 
+    # Transform
     X_processed = preprocessor.fit_transform(X)
 
     # Feature names
     cat_features = preprocessor.named_transformers_["categorical"]["onehot"].get_feature_names_out(categorical_features)
     feature_names = list(cat_features) + numerical_features
 
-    X_processed = pd.DataFrame(X_processed.toarray(), columns=feature_names)
+    X_processed = pd.DataFrame(X_processed, columns=feature_names, index=X.index)
     processed_df = pd.concat([X_processed, y.reset_index(drop=True)], axis=1)
 
+    # Save processed dataset
     os.makedirs(os.path.dirname(PROCESSED_DATA_PATH), exist_ok=True)
     processed_df.to_csv(PROCESSED_DATA_PATH, index=False)
-    logger.info(f"Processed dataset saved at {PROCESSED_DATA_PATH}")
+    logger.info(f"✅ Processed dataset saved at {PROCESSED_DATA_PATH}")
 
     # Save preprocessor for inference
-    import joblib
+    os.makedirs(MODEL_DIR, exist_ok=True)
     preprocessor_path = os.path.join(MODEL_DIR, "preprocessor.pkl")
     joblib.dump(preprocessor, preprocessor_path)
-    logger.info(f"Preprocessor saved at {preprocessor_path}")
+    logger.info(f"✅ Preprocessor saved at {preprocessor_path}")
 
 
 if __name__ == "__main__":

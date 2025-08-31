@@ -7,8 +7,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.config import MODEL_DIR, DATA_DIR
 
 saved_dir = os.path.join(MODEL_DIR, "saved_models")
-model_path = os.path.join(saved_dir, "rent_model.pkl")
-preprocessor_path = os.path.join(saved_dir, "preprocessor.pkl")
+preprocessor_path = os.path.join("models", "saved_models", "preprocessor.pkl")
+model_path = os.path.join("models", "saved_models", "rent_model.pkl")
+
 
 # Load model + preprocessor
 model = joblib.load(model_path)
