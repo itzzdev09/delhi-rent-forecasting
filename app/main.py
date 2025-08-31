@@ -29,3 +29,4 @@ def predict(input_data: RentInput):
 @app.get("/dropdowns")
 def dropdowns():
     return get_dropdown_options()
+
