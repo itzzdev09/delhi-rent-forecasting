@@ -62,6 +62,9 @@ pip install -r requirements.txt
 ```
 
 ---
+### keep in mind
+Place the datasets under `data/raw/` and `data/processed/`. 
+This folder is ignored in git and must be created locally.
 
 ## 🛠️ Workflow
 
