@@ -1,105 +1,109 @@
-import streamlit as st
-import pandas as pd
-import joblib
 import os
+import joblib
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 
-from utils.config import MODEL_DIR, PROCESSED_DATA_PATH
+# ----------------------------
+# Load Models & Preprocessor
+# ----------------------------
+MODEL_DIR = os.path.join("models", "saved_models")
+model_path = os.path.join(MODEL_DIR, "rent_model.pkl")
+preprocessor_path = os.path.join(MODEL_DIR, "preprocessor.pkl")
 
-# Load model + preprocessor
-model_path = os.path.join(MODEL_DIR, "saved_models", "rent_model.pkl")
-preprocessor_path = os.path.join(MODEL_DIR, "saved_models", "preprocessor.pkl")
+if not os.path.exists(model_path) or not os.path.exists(preprocessor_path):
+    st.error("❌ Model or preprocessor files not found. Check your paths.")
+else:
+    model = joblib.load(model_path)
+    preprocessor = joblib.load(preprocessor_path)
 
-model = joblib.load(model_path)
-preprocessor = joblib.load(preprocessor_path)
-
-# Load processed data (for dropdowns, trends, and map plotting)
-df = pd.read_csv(PROCESSED_DATA_PATH)
-
-
-# -------------------------------
-# UI
-# -------------------------------
-st.set_page_config(
-    page_title="Delhi Rent Prediction",
-    page_icon="🏠",
-    layout="wide"
-)
+# ----------------------------
+# Streamlit UI Layout
+# ----------------------------
+st.set_page_config(page_title="Delhi Rent Forecasting", layout="wide")
 
 st.title("🏠 Delhi Rent Forecasting Dashboard")
 
 # Sidebar Inputs
-st.sidebar.header("Enter Property Details")
+st.sidebar.header("Input Features")
 
-area = st.sidebar.number_input("Area (Sq. Ft.)", min_value=100, max_value=5000, value=1000, step=50)
+area = st.sidebar.number_input("Area (Sq. Ft.)", min_value=100, max_value=5000, step=50, value=1000)
 bhk = st.sidebar.radio("Bedrooms (BHK)", [1, 2, 3, "4+"])
-location = st.sidebar.selectbox("Location", sorted(df["location"].dropna().unique().tolist()))
-bathroom = st.sidebar.slider("Number of Bathrooms", 1, 5, 2)
+bathrooms = st.sidebar.slider("Number of Bathrooms", 1, 5, 2)
 balconies = st.sidebar.slider("Number of Balconies", 0, 3, 1)
 
-# Build input dict
-input_data = {
-    "house_type": "Apartment",
-    "house_size": f"{bhk} BHK" if bhk != "4+" else "4 BHK",
-    "location": location,
-    "latitude": df[df["location"] == location]["latitude"].mean(),
-    "longitude": df[df["location"] == location]["longitude"].mean(),
-    "numBathrooms": bathroom,
-    "numBalconies": balconies,
-    "size": area
-}
+location = st.sidebar.selectbox("Location", ["Dwarka", "Vasant Kunj", "Rohini"])
 
+# ----------------------------
 # Prediction
-X_input = pd.DataFrame([input_data])
-X_processed = preprocessor.transform(X_input)
-pred = model.predict(X_processed)[0]
+# ----------------------------
+if st.sidebar.button("Predict Rent"):
+    # Prepare input
+    input_df = pd.DataFrame([{
+        "house_type": "Apartment",
+        "house_size": f"{bhk} BHK" if bhk != "4+" else "4 BHK",
+        "location": location,
+        "latitude": 28.61,   # you can map location → lat/lon from your dataset
+        "longitude": 77.04,
+        "numBathrooms": bathrooms,
+        "numBalconies": balconies,
+        "area": area
+    }])
 
-# Forecasted Rent Display
-st.metric("Forecasted Rent", f"₹ {round(pred, 2):,.0f}")
+    X_processed = preprocessor.transform(input_df)
+    prediction = model.predict(X_processed)[0]
 
-# -------------------------------
-# Map Visualization
-# -------------------------------
-st.subheader("📍 Location-wise Rent Map")
+    # ----------------------------
+    # Forecasted Rent Card
+    # ----------------------------
+    st.markdown(
+        f"""
+        <div style="text-align:center; background-color:#f8f9fa; padding:20px; 
+        border-radius:15px; font-size:28px; font-weight:bold;">
+        Forecasted Rent: ₹ {prediction:,.0f}
+        </div>
+        """, unsafe_allow_html=True
+    )
 
-map_data = df.groupby("location").agg({
-    "latitude": "mean",
-    "longitude": "mean",
-    "price": "mean"
-}).reset_index()
+    # ----------------------------
+    # Map Visualization
+    # ----------------------------
+    st.subheader("📍 Location Map")
+    map_df = pd.DataFrame([{
+        "lat": input_df["latitude"][0],
+        "lon": input_df["longitude"][0],
+        "location": location,
+        "predicted_rent": prediction
+    }])
 
-fig_map = px.scatter_mapbox(
-    map_data,
-    lat="latitude",
-    lon="longitude",
-    color="price",
-    size="price",
-    hover_name="location",
-    color_continuous_scale="YlOrRd",
-    zoom=10,
-    height=400
-)
-fig_map.update_layout(mapbox_style="carto-positron", margin={"r":0,"t":0,"l":0,"b":0})
-st.plotly_chart(fig_map, use_container_width=True)
+    fig_map = px.scatter_mapbox(
+        map_df,
+        lat="lat",
+        lon="lon",
+        color="predicted_rent",
+        size=[15],
+        hover_name="location",
+        zoom=11,
+        height=400
+    )
+    fig_map.update_layout(mapbox_style="open-street-map")
+    st.plotly_chart(fig_map, use_container_width=True)
 
-# -------------------------------
-# Historical vs Predicted Trends
-# -------------------------------
-st.subheader("📊 Historical vs. Predicted Rent Trends")
+    # ----------------------------
+    # Historical vs Predicted Trends (Dummy Data Example)
+    # ----------------------------
+    st.subheader("📊 Historical vs. Predicted Rent Trends")
 
-# Simulated monthly trend (replace with real historical data if available)
-trend_data = pd.DataFrame({
-    "Month": pd.date_range("2023-01-01", periods=12, freq="M"),
-    "Actual Rent": (df["price"].mean() * (1 + 0.1 * pd.Series(range(12)))).values,
-    "Predicted Rent": (df["price"].mean() * (1 + 0.08 * pd.Series(range(12)))).values
-})
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+    actual_rent = [20000, 22000, 21000, 23000, 25000, 24000]
+    predicted_rent = [prediction * 0.9, prediction * 0.95, prediction,
+                      prediction * 1.05, prediction * 1.1, prediction]
 
-fig_trend = go.Figure()
-fig_trend.add_trace(go.Scatter(x=trend_data["Month"], y=trend_data["Actual Rent"],
-                               mode="lines+markers", name="Actual Rent", line=dict(color="green")))
-fig_trend.add_trace(go.Scatter(x=trend_data["Month"], y=trend_data["Predicted Rent"],
-                               mode="lines+markers", name="Predicted Rent", line=dict(color="red")))
-fig_trend.update_layout(xaxis_title="Month", yaxis_title="Rent (₹)", height=400)
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(x=months, y=actual_rent,
+                                  mode="lines+markers", name="Actual Rent"))
+    fig_line.add_trace(go.Scatter(x=months, y=predicted_rent,
+                                  mode="lines+markers", name="Predicted Rent"))
 
-st.plotly_chart(fig_trend, use_container_width=True)
+    st.plotly_chart(fig_line, use_container_width=True)
