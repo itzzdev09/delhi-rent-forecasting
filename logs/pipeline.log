@@ -65,3 +65,20 @@
 2025-08-31 19:31:11,770 - __main__ - WARNING - Dropping constant columns (no variance): ['city', 'currency']
 2025-08-31 19:31:11,777 - __main__ - INFO - Encoding categorical features: ['house_type', 'house_size', 'location', 'isNegotiable', 'verificationDate', 'description', 'SecurityDeposit', 'Status', 'furnishing', 'tenant_preferred', 'point_of_contact']
 2025-08-31 19:31:11,778 - __main__ - INFO - Scaling numerical features: ['latitude', 'longitude', 'numBathrooms', 'numBalconies', 'priceSqFt', 'bhk', 'bathroom', 'size', 'rent']
+2025-09-06 22:51:15,598 - streamlit_app - INFO - Loading model from C:\laptop projects\delhi-rent-forecasting\models\saved_models\rent_model.pkl
+2025-09-06 22:51:17,529 - streamlit_app - INFO - Loading preprocessor from C:\laptop projects\delhi-rent-forecasting\models\saved_models\preprocessor.pkl
+2025-09-06 22:51:17,609 - streamlit_app - ERROR - startup error
+Traceback (most recent call last):
+  File "C:\laptop projects\delhi-rent-forecasting\streamlit_app.py", line 146, in <module>
+    processed_df = load_processed_df()
+  File "C:\Users\devve\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\caching\cache_utils.py", line 227, in __call__
+    return self._get_or_create_cached_value(args, kwargs, spinner_message)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\devve\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\caching\cache_utils.py", line 269, in _get_or_create_cached_value
+    return self._handle_cache_miss(cache, value_key, func_args, func_kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\devve\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\caching\cache_utils.py", line 328, in _handle_cache_miss
+    computed_value = self._info.func(*func_args, **func_kwargs)
+  File "C:\laptop projects\delhi-rent-forecasting\streamlit_app.py", line 55, in load_processed_df
+    raise FileNotFoundError(f"Processed dataset not found at {PROCESSED_DATA_PATH}")
+FileNotFoundError: Processed dataset not found at C:\laptop projects\delhi-rent-forecasting\data\processed\processed_rentals.csv
